@@ -4,87 +4,78 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.security.InvalidParameterException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 @Getter
 @Setter
 public class Blockchain {
-
     private List<Block> chain;
-
     private TransactionPool transactionPool;
-
     private int difficulty;
-
-    public Blockchain(int difficulty) {
+    private final int adjustmentInterval;
+    public Blockchain(int difficulty, int adjustmentInterval) {
         this.chain = new ArrayList<>();
         this.transactionPool = new TransactionPool();
         this.difficulty = difficulty;
-        // Create the genesis block
+        this.adjustmentInterval = adjustmentInterval;
         Block genesisBlock = createGenesisBlock();
         chain.add(genesisBlock);
     }
-
     private Block createGenesisBlock() {
-        // Create the first block in the blockchain (genesis block)
-
-        List<Transaction> transactions = new ArrayList<>(); // Empty list for genesis block
-
+        List<Transaction> transactions = new ArrayList<>();
         return new Block(0, "0", transactions, 0);
     }
-
     public Block getLatestBlock() {
         return chain.get(chain.size() - 1);
     }
-
     public Block addBlock(Block block) {
         if (isValidBlock(block)) {
             chain.add(block);
             transactionPool.removeTransactions(block.getTransactions());
+            adjustDifficulty();
             return block;
         }
-        throw new InvalidParameterException();
+        throw new InvalidParameterException("Invalid block");
     }
 
     public boolean isValidBlock(Block block) {
         Block previousBlock = getLatestBlock();
 
-        // Check if the index is incrementing by 1
         if (block.getIndex() != previousBlock.getIndex() + 1) {
             return false;
         }
 
-        // Check if the previous hash matches
         if (!block.getPreviousHash().equals(previousBlock.getCurrentHash())) {
             return false;
         }
 
-        // Check if the block hash meets the difficulty requirement
-        String prefix = getDifficultyPrefix(difficulty);
-        return block.getCurrentHash().startsWith(prefix);
-
+        return block.getCurrentHash().startsWith(getDifficultyPrefix(difficulty));
     }
 
     public Block mineBlock() {
+        Block newBlock = new Block(
+                chain.size(),
+                getLatestBlock().getCurrentHash(),
+                transactionPool.getPendingTransactions(),
+                0
+        );
 
-        Block block = new Block(getChain().size(), getLatestBlock().getCurrentHash(),
-                transactionPool.getPendingTransactions(), 0);
-
-        block.setPreviousHash(getLatestBlock().getCurrentHash());
-
-        var calculatedHash = block.calculateHash();
-
-        while (!calculatedHash.startsWith(getDifficultyPrefix(difficulty))) {
-            block.incrementNonce();
-            calculatedHash = block.calculateHash();
-        }
-
-        block.setCurrentHash(calculatedHash);
-
-        return addBlock(block);
+        mineBlock(newBlock, difficulty);
+        return addBlock(newBlock);
     }
 
+    public void mineBlock(Block block, int difficulty) {
+        String prefix = getDifficultyPrefix(difficulty);
+        String hash;
+        do {
+            block.incrementNonce();
+            hash = block.calculateHash();
+        } while (!hash.startsWith(prefix));
+        block.setCurrentHash(hash);
+    }
 
     private String getDifficultyPrefix(int difficulty) {
         return "0".repeat(difficulty);
@@ -95,13 +86,7 @@ public class Blockchain {
             Block currentBlock = chain.get(i);
             Block previousBlock = chain.get(i - 1);
 
-            // Check if the current hash of the block is valid
-            if (!currentBlock.getCurrentHash().equals(currentBlock.calculateHash())) {
-                return false;
-            }
-
-            // Check if the previous hash is equal to the hash of the previous block
-            if (!currentBlock.getPreviousHash().equals(previousBlock.getCurrentHash())) {
+            if (!currentBlock.validateBlock(difficulty, previousBlock)) {
                 return false;
             }
         }
@@ -111,5 +96,26 @@ public class Blockchain {
     public void addTransaction(Transaction transaction) {
         transactionPool.addTransaction(transaction);
     }
-}
 
+    public Block getBlockByIndex(int index) {
+        if (index < 0 || index >= chain.size()) {
+            throw new InvalidParameterException("Block index out of bounds");
+        }
+        return chain.get(index);
+    }
+
+    private void adjustDifficulty() {
+        if (chain.size() % adjustmentInterval == 0 && chain.size() > 0) {
+            Block lastAdjustedBlock = chain.get(chain.size() - adjustmentInterval);
+            Block latestBlock = getLatestBlock();
+            long timeExpected = adjustmentInterval * 10 * 60;
+            long timeTaken = Duration.between(lastAdjustedBlock.getTimestamp(), latestBlock.getTimestamp()).getSeconds();
+
+            if (timeTaken < timeExpected / 2) {
+                difficulty++;
+            } else if (timeTaken > timeExpected * 2) {
+                difficulty--;
+            }
+        }
+    }
+}

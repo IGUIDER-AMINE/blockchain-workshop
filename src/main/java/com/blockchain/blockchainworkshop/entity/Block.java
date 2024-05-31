@@ -12,15 +12,10 @@ import java.util.List;
 public class Block {
 
     private int index;
-
     private Instant timestamp;
-
     private String previousHash;
-
     private String currentHash;
-
     private List<Transaction> transactions;
-
     private int nonce;
 
     public Block(int index, String previousHash, List<Transaction> transactions, int nonce) {
@@ -37,11 +32,33 @@ public class Block {
     }
 
     public String calculateHash() {
-        // Hash calculation logic using the block's attributes and HashUtil
-        // Example implementation:
         String data = index + timestamp.toString() + previousHash + transactions.toString() + nonce;
         return HashUtil.calculateSHA256(data);
     }
 
-
+    public boolean validateBlock(int difficulty, Block previousBlock) {
+        String prefix = "0".repeat(difficulty);
+        String calculatedHash = calculateHash();
+        // Check if the calculated hash satisfies the difficulty requirement
+        if (!calculatedHash.startsWith(prefix)) {
+            return false;
+        }
+        // Check if the calculated hash matches the stored hash
+        if (!calculatedHash.equals(currentHash)) {
+            return false;
+        }
+        // Check if the block's index is correct
+        if (index != previousBlock.getIndex() + 1) {
+            return false;
+        }
+        // Check if the previous hash matches
+        if (!previousHash.equals(previousBlock.getCurrentHash())) {
+            return false;
+        }
+        // Check if the timestamp is valid (not in the future)
+        if (timestamp.isAfter(Instant.now())) {
+            return false;
+        }
+        return true;
+    }
 }

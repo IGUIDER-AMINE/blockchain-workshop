@@ -4,7 +4,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class HashUtil {
-
     private HashUtil(){throw new IllegalAccessError("Invalid call to constructor");}
     public static String calculateSHA256(String data) {
         try {

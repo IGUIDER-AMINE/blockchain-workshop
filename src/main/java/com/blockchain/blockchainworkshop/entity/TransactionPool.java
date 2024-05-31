@@ -1,15 +1,12 @@
 package com.blockchain.blockchainworkshop.entity;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Getter
-@Setter
+@Data
 public class TransactionPool {
-
     private final List<Transaction> pendingTransactions;
 
     public TransactionPool() {
@@ -31,5 +28,4 @@ public class TransactionPool {
     public void removeTransactions(List<Transaction> transactions) {
         pendingTransactions.removeAll(transactions);
     }
-
 }

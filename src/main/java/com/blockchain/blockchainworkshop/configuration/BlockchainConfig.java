@@ -11,6 +11,6 @@ public class BlockchainConfig {
     @Bean
     @Scope("singleton")
     public Blockchain blockchain() {
-        return new Blockchain(2);
+        return new Blockchain(2, 10); // Ensure adjustment interval is set
     }
 }
